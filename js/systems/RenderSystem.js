@@ -5,13 +5,23 @@ class RenderSystem {
   }
 
   renderWorld(ctx, localPlayer, remotePlayers, essences, npcs, cameraX, cameraY) {
-    // Clear canvas with semi-transparent overlay for motion blur effect
-    ctx.fillStyle = 'rgba(10, 14, 39, 0.1)';
+    // Clear canvas
+    ctx.fillStyle = '#0a0e27';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    if (!localPlayer) return;
+    // Draw subtle background gradient
+    const gradient = ctx.createLinearGradient(0, 0, this.canvas.width, this.canvas.height);
+    gradient.addColorStop(0, 'rgba(10, 14, 39, 0)');
+    gradient.addColorStop(1, 'rgba(26, 31, 58, 0.2)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Draw world grid (optional visual aid)
+    if (!localPlayer) {
+      console.warn('[RENDER] No local player to render');
+      return;
+    }
+
+    // Draw world grid
     this.drawGrid(ctx, cameraX, cameraY, this.canvas.width, this.canvas.height);
 
     // Draw essences (behind everything)
@@ -35,16 +45,26 @@ class RenderSystem {
       }
     });
 
-    // Draw local player (on top)
-    localPlayer.render(ctx, cameraX, cameraY);
+    // Draw local player (on top, always visible)
+    const screenX = localPlayer.position.x - cameraX;
+    const screenY = localPlayer.position.y - cameraY;
+    
+    // Only render if on screen
+    if (screenX > -50 && screenX < this.canvas.width + 50 && 
+        screenY > -50 && screenY < this.canvas.height + 50) {
+      localPlayer.render(ctx, cameraX, cameraY);
+    }
 
     // Draw world boundaries
     this.drawWorldBoundaries(ctx, cameraX, cameraY);
+
+    // Draw debug info (optional)
+    this.drawDebugInfo(ctx, localPlayer);
   }
 
   drawGrid(ctx, cameraX, cameraY, width, height) {
     const gridSize = 100;
-    const gridColor = 'rgba(0, 212, 255, 0.05)';
+    const gridColor = 'rgba(0, 212, 255, 0.03)';
 
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
@@ -73,11 +93,11 @@ class RenderSystem {
   drawWorldBoundaries(ctx, cameraX, cameraY) {
     const worldSize = ClientConfig.WORLD_SIZE;
     const borderColor = 'rgba(255, 100, 100, 0.3)';
-    const borderWidth = 2;
+    const borderWidth = 3;
 
     ctx.strokeStyle = borderColor;
     ctx.lineWidth = borderWidth;
-    ctx.lineDashPattern = [10, 10];
+    ctx.setLineDash([10, 10]);
 
     // Top
     ctx.beginPath();
@@ -103,12 +123,20 @@ class RenderSystem {
     ctx.lineTo(worldSize.width - cameraX, worldSize.height - cameraY);
     ctx.stroke();
 
-    ctx.lineDashPattern = [];
+    ctx.setLineDash([]);
   }
 
-  drawPlayerCount(ctx, playerCount, x = 20, y = 60) {
-    ctx.fillStyle = '#ffffff';
+  drawDebugInfo(ctx, localPlayer) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(20, 150, 200, 80);
+
+    ctx.fillStyle = '#00d4ff';
     ctx.font = '12px Arial';
-    ctx.fillText(`Players: ${playerCount}`, x, y);
+    ctx.textAlign = 'left';
+
+    ctx.fillText(`Pos: (${Math.floor(localPlayer.position.x)}, ${Math.floor(localPlayer.position.y)})`, 30, 170);
+    ctx.fillText(`Vel: (${Math.floor(localPlayer.velocity.x)}, ${Math.floor(localPlayer.velocity.y)})`, 30, 190);
+    ctx.fillText(`Radius: ${Math.floor(localPlayer.radius)}`, 30, 210);
+    ctx.fillText(`Essences: ${localPlayer.essenceCount}`, 30, 230);
   }
 }
