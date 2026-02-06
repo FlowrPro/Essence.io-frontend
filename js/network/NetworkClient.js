@@ -8,6 +8,7 @@ class NetworkClient {
     this.ping = 0;
     this.messageHandlers = new Map();
     this.sendQueue = [];
+    this.criticalQueue = [];
     this.lastSendTime = 0;
     this.sendInterval = 1000 / 60;
   }
@@ -67,7 +68,10 @@ class NetworkClient {
   }
 
   send(message, priority = 'normal') {
-    if (!this.connected) return;
+    if (!this.connected) {
+      console.warn('[NETWORK] Not connected, cannot send message');
+      return;
+    }
 
     const packet = {
       type: message.type,
@@ -76,23 +80,44 @@ class NetworkClient {
       priority
     };
 
-    this.sendQueue.push(packet);
+    if (priority === 'critical') {
+      // Send critical messages immediately
+      console.log('[NETWORK] Sending CRITICAL message:', packet);
+      this.criticalQueue.push(packet);
+    } else {
+      // Queue normal messages for batch sending
+      this.sendQueue.push(packet);
+    }
   }
 
   processSendQueue() {
+    // Always send critical messages immediately
+    if (this.criticalQueue.length > 0) {
+      this.criticalQueue.forEach(packet => {
+        if (this.ws.readyState === WebSocket.OPEN) {
+          console.log('[NETWORK] CRITICAL packet sent:', packet);
+          this.ws.send(JSON.stringify(packet));
+        }
+      });
+      this.criticalQueue = [];
+    }
+
     const now = Date.now();
 
+    // Send queued messages at the specified interval
     if (now - this.lastSendTime < this.sendInterval) {
       return;
     }
 
-    this.sendQueue.forEach(packet => {
-      if (this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify(packet));
-      }
-    });
+    if (this.sendQueue.length > 0) {
+      this.sendQueue.forEach(packet => {
+        if (this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify(packet));
+        }
+      });
+      this.sendQueue = [];
+    }
 
-    this.sendQueue = [];
     this.lastSendTime = now;
   }
 
