@@ -157,7 +157,13 @@ class Game {
       remotePlayer.updateFromServer(data.playerData);
       this.remotePlayers.set(data.playerId, remotePlayer);
     });
-
+  this.network.on('ping', (data) => {
+      console.log('🏓 Ping received, sending pong');
+      this.network.send({
+        type: 'pong',
+        serverTime: Date.now()
+      }, 'critical');
+    });
     this.network.on('playerLeft', (data) => {
       console.log('👤 Player left:', data.playerId);
       this.remotePlayers.delete(data.playerId);
