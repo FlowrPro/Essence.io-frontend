@@ -92,8 +92,14 @@ class NetworkClient {
     });
 
     if (priority === 'critical') {
-      // Send critical messages immediately
-      this.criticalQueue.push(packet);
+      // Send critical messages IMMEDIATELY
+      if (this.ws.readyState === WebSocket.OPEN) {
+        console.log('[NETWORK] 🚀 IMMEDIATELY Sending CRITICAL packet:', packet);
+        this.ws.send(JSON.stringify(packet));
+      } else {
+        console.warn('[NETWORK] WebSocket not open, queueing critical message');
+        this.criticalQueue.push(packet);
+      }
     } else {
       // Queue normal messages for batch sending
       this.sendQueue.push(packet);
@@ -101,11 +107,11 @@ class NetworkClient {
   }
 
   processSendQueue() {
-    // Always send critical messages immediately
+    // Send any remaining critical messages (shouldn't be many if we're sending immediately)
     if (this.criticalQueue.length > 0) {
       this.criticalQueue.forEach(packet => {
         if (this.ws.readyState === WebSocket.OPEN) {
-          console.log('[NETWORK] Sending CRITICAL packet:', packet);
+          console.log('[NETWORK] Sending queued CRITICAL packet:', packet);
           this.ws.send(JSON.stringify(packet));
         }
       });
@@ -120,6 +126,7 @@ class NetworkClient {
     }
 
     if (this.sendQueue.length > 0) {
+      console.log('[NETWORK] Sending', this.sendQueue.length, 'queued normal messages');
       this.sendQueue.forEach(packet => {
         if (this.ws.readyState === WebSocket.OPEN) {
           this.ws.send(JSON.stringify(packet));
