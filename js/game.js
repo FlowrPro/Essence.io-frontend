@@ -46,14 +46,20 @@ class Game {
 
     this.network.on('worldSnapshot', (snapshot) => {
       console.log('🌍 Received world snapshot:', snapshot);
+      console.log('   Players count:', snapshot.players?.length || 0);
+      console.log('   Essences count:', snapshot.essences?.length || 0);
+      console.log('   NPCs count:', snapshot.npcs?.length || 0);
       
       if (!snapshot.players) {
-        console.error('Invalid world snapshot - no players data');
+        console.error('❌ Invalid world snapshot - no players data');
         return;
       }
 
+      console.log(`👤 Creating local player from snapshot...`);
       snapshot.players.forEach(playerData => {
+        console.log(`   Checking player: ${playerData.id} === ${snapshot.clientId}?`);
         if (playerData.id === snapshot.clientId) {
+          console.log(`   ✅ Creating local player: ${playerData.name} at (${playerData.position.x}, ${playerData.position.y})`);
           this.localPlayer = new Player(
             playerData.id,
             playerData.name,
@@ -62,11 +68,13 @@ class Game {
           );
           this.localPlayer.essenceCount = playerData.essenceCount;
           this.localPlayer.health = playerData.health;
+          console.log(`   ✅ Local player created!`, this.localPlayer);
         }
       });
 
       snapshot.players.forEach(playerData => {
         if (playerData.id !== snapshot.clientId) {
+          console.log(`   👥 Creating remote player: ${playerData.name}`);
           const remotePlayer = new RemotePlayer(
             playerData.id,
             playerData.name,
@@ -79,6 +87,7 @@ class Game {
       });
 
       if (snapshot.essences) {
+        console.log(`💎 Creating ${snapshot.essences.length} essences`);
         snapshot.essences.forEach(essenceData => {
           const essence = new Essence(
             essenceData.id,
@@ -93,6 +102,7 @@ class Game {
       }
 
       if (snapshot.npcs) {
+        console.log(`🤖 Creating ${snapshot.npcs.length} NPCs`);
         snapshot.npcs.forEach(npcData => {
           const npc = new NPC(
             npcData.id,
@@ -104,6 +114,7 @@ class Game {
       }
 
       this.gameStarted = true;
+      console.log('✅ Game started! Hiding title screen...');
       this.hideTitleScreen();
       this.startGame();
     });
@@ -188,6 +199,7 @@ class Game {
       const username = usernameInput.value.trim();
       if (username.length > 0) {
         this.playerName = username;
+        console.log(`🎮 Starting game with username: ${username}`);
         this.joinGame(username);
         this.hideTitleScreen();
       } else {
@@ -230,6 +242,7 @@ class Game {
   }
 
   joinGame(username) {
+    console.log(`📤 Sending join message for ${username}`);
     this.network.send({
       type: 'join',
       data: {
@@ -239,6 +252,7 @@ class Game {
   }
 
   startGame() {
+    console.log('🎮 Starting game loop...');
     this.inputSystem = new InputSystem();
     this.inputSystem.onInput = (keys) => {
       if (this.localPlayer) {
@@ -295,7 +309,14 @@ class Game {
     this.ctx.fillStyle = 'rgba(10, 14, 39, 0.1)';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    if (!this.localPlayer) return;
+    if (!this.localPlayer) {
+      // Render nothing but show a message
+      this.ctx.fillStyle = '#00d4ff';
+      this.ctx.font = '20px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('Waiting for player data...', this.canvas.width / 2, this.canvas.height / 2);
+      return;
+    }
 
     const cameraX = this.localPlayer.position.x - this.canvas.width / 2;
     const cameraY = this.localPlayer.position.y - this.canvas.height / 2;
