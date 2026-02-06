@@ -1,0 +1,75 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #0a0e27;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #fff;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+}
+
+#ui {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  pointer-events: none;
+  z-index: 100;
+}
+
+#stats {
+  background: rgba(0, 0, 0, 0.7);
+  padding: 15px 20px;
+  border-radius: 8px;
+  border-left: 3px solid #00d4ff;
+  font-size: 14px;
+  line-height: 1.8;
+  font-family: 'Courier New', monospace;
+}
+
+#playerName {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #00d4ff;
+}
+
+#essenceCount,
+#health {
+  color: #a0ff6f;
+}
+
+#fps {
+  color: #ff6b6b;
+}
+
+#ping {
+  color: #ffd700;
+}
+
+#connectionStatus {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-size: 12px;
+  border: 1px solid #ff6b6b;
+}
+
+#connectionStatus.connected {
+  border-color: #a0ff6f;
+  color: #a0ff6f;
+}
