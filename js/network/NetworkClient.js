@@ -45,6 +45,7 @@ class NetworkClient {
   }
 
   handleMessage(packet) {
+    console.log('[NETWORK] Received packet:', packet);
     if (packet.type === 'batch') {
       packet.messages.forEach(msg => this.processMessage(msg));
     } else {
@@ -54,9 +55,11 @@ class NetworkClient {
 
   processMessage(message) {
     const type = message.type || message.data?.type;
+    console.log('[NETWORK] Processing message type:', type);
     const handler = this.messageHandlers.get(type);
 
     if (handler) {
+      console.log('[NETWORK] Handler found for:', type);
       handler(message.data || message);
     } else if (type !== 'batch') {
       console.warn(`[NETWORK] No handler for message type: ${type}`);
@@ -64,6 +67,7 @@ class NetworkClient {
   }
 
   on(messageType, handler) {
+    console.log('[NETWORK] Registering handler for:', messageType);
     this.messageHandlers.set(messageType, handler);
   }
 
@@ -73,16 +77,22 @@ class NetworkClient {
       return;
     }
 
+    // Message is already structured like {type: 'join', data: {...}}
+    // We just need to add timestamp and priority, NOT wrap it again
     const packet = {
-      type: message.type,
-      data: message,
+      ...message,
       timestamp: Date.now(),
       priority
     };
 
+    console.log('[NETWORK] Queueing message:', {
+      type: message.type,
+      priority,
+      isCritical: priority === 'critical'
+    });
+
     if (priority === 'critical') {
       // Send critical messages immediately
-      console.log('[NETWORK] Sending CRITICAL message:', packet);
       this.criticalQueue.push(packet);
     } else {
       // Queue normal messages for batch sending
@@ -95,7 +105,7 @@ class NetworkClient {
     if (this.criticalQueue.length > 0) {
       this.criticalQueue.forEach(packet => {
         if (this.ws.readyState === WebSocket.OPEN) {
-          console.log('[NETWORK] CRITICAL packet sent:', packet);
+          console.log('[NETWORK] Sending CRITICAL packet:', packet);
           this.ws.send(JSON.stringify(packet));
         }
       });
