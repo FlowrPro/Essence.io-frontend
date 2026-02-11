@@ -45,20 +45,25 @@ class Game {
     });
 
     this.network.on('worldSnapshot', (snapshot) => {
+      // NOTE: changed to use this.clientId (set by init) with a fallback to snapshot.clientId
+      // to ensure local player detection is reliable.
       console.log('🌍 Received world snapshot:', snapshot);
       console.log('   Players count:', snapshot.players?.length || 0);
       console.log('   Essences count:', snapshot.essences?.length || 0);
       console.log('   NPCs count:', snapshot.npcs?.length || 0);
-      
+      console.log('   snapshot.clientId:', snapshot.clientId, 'this.clientId:', this.clientId);
+
       if (!snapshot.players) {
         console.error('❌ Invalid world snapshot - no players data');
         return;
       }
 
-      console.log(`👤 Creating local player from snapshot...`);
+      const myClientId = this.clientId || snapshot.clientId; // defensive fallback
+
+      console.log(`👤 Creating local player from snapshot (game clientId=${myClientId})...`);
       snapshot.players.forEach(playerData => {
-        console.log(`   Checking player: ${playerData.id} === ${snapshot.clientId}?`);
-        if (playerData.id === snapshot.clientId) {
+        console.log(`   Checking player: ${playerData.id} === ${myClientId}?`);
+        if (playerData.id === myClientId) {
           console.log(`   ✅ Creating local player: ${playerData.name} at (${playerData.position.x}, ${playerData.position.y})`);
           this.localPlayer = new Player(
             playerData.id,
@@ -73,7 +78,7 @@ class Game {
       });
 
       snapshot.players.forEach(playerData => {
-        if (playerData.id !== snapshot.clientId) {
+        if (playerData.id !== myClientId) {
           console.log(`   👥 Creating remote player: ${playerData.name}`);
           const remotePlayer = new RemotePlayer(
             playerData.id,
@@ -157,13 +162,15 @@ class Game {
       remotePlayer.updateFromServer(data.playerData);
       this.remotePlayers.set(data.playerId, remotePlayer);
     });
-  this.network.on('ping', (data) => {
+
+    this.network.on('ping', (data) => {
       console.log('🏓 Ping received, sending pong');
       this.network.send({
         type: 'pong',
         serverTime: Date.now()
       }, 'critical');
     });
+
     this.network.on('playerLeft', (data) => {
       console.log('👤 Player left:', data.playerId);
       this.remotePlayers.delete(data.playerId);
@@ -312,6 +319,7 @@ class Game {
   }
 
   render() {
+    // subtle overlay instead of full clear so trails fade
     this.ctx.fillStyle = 'rgba(10, 14, 39, 0.1)';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
