@@ -29,8 +29,9 @@ class NetworkClient {
           this.handleMessage(JSON.parse(event.data));
         };
 
-        this.ws.onclose = () => {
-          console.log('[NETWORK] Disconnected from server');
+        // Improved onclose logging for debugging: show code/reason/wasClean
+        this.ws.onclose = (event) => {
+          console.log('[NETWORK] Disconnected from server', { code: event.code, reason: event.reason, wasClean: event.wasClean });
           this.connected = false;
         };
 
@@ -119,42 +120,55 @@ class NetworkClient {
     }
 
     const now = Date.now();
+    if (now - this.lastSendTime < this.sendInterval) return;
 
-    // Send queued messages at the specified interval
-    if (now - this.lastSendTime < this.sendInterval) {
-      return;
-    }
+    if (this.sendQueue.length === 0) return;
 
-    if (this.sendQueue.length > 0) {
-      console.log('[NETWORK] Sending', this.sendQueue.length, 'queued normal messages');
-      this.sendQueue.forEach(packet => {
-        if (this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(JSON.stringify(packet));
-        }
-      });
-      this.sendQueue = [];
+    // Batch messages into a single packet
+    const batch = {
+      type: 'batch',
+      messages: this.sendQueue.splice(0, 50),
+      timestamp: Date.now()
+    };
+
+    if (this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify(batch));
+        console.log('[NETWORK] Sent batch of', batch.messages.length);
+      } catch (e) {
+        console.error('[NETWORK] Failed to send batch', e);
+      }
+    } else {
+      // Re-queue if socket is not open
+      console.warn('[NETWORK] WebSocket not open, re-queueing batch');
+      this.sendQueue = batch.messages.concat(this.sendQueue);
     }
 
     this.lastSendTime = now;
   }
 
   startHeartbeat() {
-    setInterval(() => {
-      if (this.connected) {
-        this.send({ type: 'ping', timestamp: Date.now() }, 'critical');
+    // send initial ping
+    this.lastPingTime = Date.now();
+    this.ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now(), priority: 'critical' }));
+
+    // send regular pings
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now(), priority: 'critical' }));
       }
-    }, 10000);
+    }, 5000);
   }
 
   handlePing(data) {
-    this.ping = Date.now() - data.serverTime;
+    // server pong: compute ping
+    if (data && data.serverTime) {
+      const now = Date.now();
+      this.ping = now - data.serverTime;
+    }
   }
 
   getPing() {
     return this.ping;
-  }
-
-  isConnected() {
-    return this.connected;
   }
 }
